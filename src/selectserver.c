@@ -32,6 +32,7 @@
 #define MAXBUFSIZE BUFSIZ
 
 void sendIPListToSocket(int socket);
+int terminateConnectionServer(char *id, int *ret_socket);
 //void sendFileToSocket(int receiver_socket, char *filename);
 
 ip_list *server_ip_list;
@@ -39,7 +40,7 @@ ip_list *server_ip_list;
 void startServer(char *LISTENING_PORT) {
 	struct addrinfo hints, *ai_result, *p;
 	int gai_result;
-	int listener_socket, new_sock;
+	int listener_socket, new_sock, temp_socket;
 	fd_set fds_master, fds_read;
 	int yes = 1;
 	int fdmax;
@@ -154,53 +155,61 @@ void startServer(char *LISTENING_PORT) {
 						continue; //invalid command, skip the next part
 					}
 					switch (command) {
-					int j;
+
 				case CMD_HELP:
+					if (DEBUG)
 					printf("CMD_HELP\n");
 					break;
 				case CMD_CREATOR:
+					if (DEBUG)
 					printf("CMD_CREATOR\n");
 					printf("Name: Muhammed Zaki Muhammed Husain Bakshi\n");
 					printf("UBIT name: mbakshi\n");
 					printf("email: mbakshi@buffalo.edu\n");
 					break;
 				case CMD_DISPLAY:
+					if (DEBUG)
 					printf("CMD_DISPLAY\n");
 					displayIPAndPort(LISTENING_PORT);
 					break;
 				case CMD_REGISTER:
+					if (DEBUG)
 					printf("CMD_REGISTER\n");
+					printf("REGISTER command is not valid on server\n");
 					break;
 				case CMD_CONNECT:
+					if (DEBUG)
 					printf("CMD_CONNECT\n");
 					break;
 				case CMD_LIST:
+					if (DEBUG)
 					printf("CMD_LIST\n");
 					printIPList(&server_ip_list);
 					break;
 				case CMD_TERMINATE:
+					if (DEBUG)
 					printf("CMD_TERMINATE\n");
+					if (terminateConnectionServer(arg1, &temp_socket) == 0) {
+							printf("ERROR: Problem Terminating connection\n");
+							break;
+						}
+						removeBySocket(&server_ip_list, temp_socket);
+						FD_CLR(temp_socket, &fds_master);
+						printf("Connection Successfully Terminated\n");
 					break;
 				case CMD_QUIT:
+					if (DEBUG)
 					printf("CMD_QUIT\n");
 					break;
 				case CMD_GET:
+					if (DEBUG)
 					printf("CMD_GET\n");
+					printf("GET Command is not valid on server\n");
 					break;
 				case CMD_PUT:
-
+					if (DEBUG)
 					printf("CMD_PUT\n");
-//					sendFileToSocket(atoi(arg1),arg2);
-					/*sprintf(print_buf, "some bullshit to send");
-					 for (j = 0; j <= fdmax; j++) {
-					 if (FD_ISSET(j, &fds_master)) {
-					 if (j != listener_socket && j != STDIN_FILENO) {
-					 printf("sending something\n");
-					 if (send(j, print_buf, strlen(print_buf), 0) == -1)
-					 perror("send");
-					 }
-					 }
-					 }*/
+					printf("PUT Command is not valid on server\n");
 					break;
 
 					}
@@ -234,7 +243,7 @@ void startServer(char *LISTENING_PORT) {
 					} else { //received from hosts
 						char *tokens[MAX_TOKENS];
 						int number_of_tokens;
-						int iterator, j;
+						int j;
 						ip_list *temp_node;
 						//TODO: replace the below number with appropriate macro
 						char send_buf[BUFSIZ];
@@ -301,60 +310,32 @@ void sendIPListToSocket(int socket) {
 
 }
 
-/*void sendFileToSocket(int receiver_socket, char *filename) {
-	int file_fd;
-	struct stat file_stat;
-	char file_size_string[100];
-	off_t file_offset;
-	int remaining_bytes;
-	int sent_bytes;
-	int msg_len;
-	int flag;
+int terminateConnectionServer(char *id, int *ret_socket) {
 
-	file_fd = open(filename, O_RDONLY);
-	if (file_fd == -1) {
-		fprintf(stderr, "ERROR open():%s\n", strerror(errno));
-		return;
-	}
-	if (fstat(file_fd, &file_stat) < 0) {
-		fprintf(stderr, "ERROR fstat():%s\n", strerror(errno));
-		return;
-	}
-	printf("File size:%d bytes\n",(int)file_stat.st_size);
-	sprintf(file_size_string,"$FSIZE %d ",(int)file_stat.st_size);
-	msg_len=strlen(file_size_string);
+	int conn_id;
+	int iterator = 0;
+	ip_list *temp_node = server_ip_list;
+if(DEBUG)	printf("ID:%d\n", conn_id);
 
-	flag =1;
-	setsockopt(receiver_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
-	send_all(receiver_socket, file_size_string, &msg_len);
-
-	file_offset=0;
-	remaining_bytes=file_stat.st_size;
-	if(DEBUG) printf("FileSocket:%d\n",receiver_socket);
-
-
-//	sent_bytes=sendfile(receiver_socket, file_fd,&file_offset, file_stat.st_size);
-//	if(sent_bytes==-1)
-//		perror("sendfile");
-//	if(sent_bytes!=file_stat.st_size) {
-//		printf("Incomplete file transfer %d\n",sent_bytes);
-//	}
-
-	while((sent_bytes=sendfile(receiver_socket, file_fd,&file_offset, BUFSIZ))>0 && (remaining_bytes>0)) {
-		if(sent_bytes==-1)
-			perror("ERROR sendfile");
-		remaining_bytes=remaining_bytes-sent_bytes;
-		printf("sent bytes:%d\t remaining bytes:%d\n",sent_bytes,remaining_bytes);
-
+	if(id==NULL) {
+		printf("ERROR: Provide a connection ID for TERMINATE command\n");
+		return 0;
 	}
 
-	flag=0;
-	setsockopt(receiver_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
 
-
-	printf("Done sending\n");
-	close(file_fd);
-
-
+	if(parseInt(id, &conn_id)==0) {
+		printf("Not a valid connection ID\n");
+		return 0;
+	}
+	while (temp_node != NULL && iterator < conn_id - 1) {
+		temp_node = temp_node->next;
+		iterator++;
+	}
+	if (temp_node == NULL) {
+		printf("ERROR: ID out of range\n");
+		return 0;
+	}
+	close(temp_node->socket);
+	*ret_socket = temp_node->socket;
+	return 1;
 }
-*/

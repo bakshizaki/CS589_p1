@@ -84,13 +84,13 @@ int string_tokenizer(char *input_string,char *delimeter, char *tokens[], int tok
 		p = strtok(NULL, delimeter);
 	}
 	if (p!=NULL) {
-			printf("more than allowed tokens\n");
+			if(DEBUG) printf("more than allowed tokens\n");
 			return token_count;
 		}
-
+		if(DEBUG) {
 		for(i=0;i<token_count;i++)
 			printf("%s\n",tokens[i]);
-
+		}
 		return token_count;
 
 }
@@ -112,14 +112,14 @@ int send_all(int socket, char *buf, int *len) {
 	return n == -1 ? -1 : 0;
 }
 
-bool parseInt(const char *str, int *val) {
+int parseInt(const char *str, int *val) {
 	char *temp;
-	bool rc = true;
+	int rc = 1;
 	errno = 0;
 	*val = (int)strtol(str, &temp, 0);
 
 	if (temp == str || *temp != '\0' || ((*val == LONG_MIN || *val == LONG_MAX) && errno == ERANGE))
-		rc = false;
+		rc = 0;
 
 	return rc;
 }
