@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/sendfile.h>
+#include <netinet/tcp.h>
 
 #include"selectserver.h"
 #include"command_handling.h"
@@ -31,7 +32,7 @@
 #define MAXBUFSIZE BUFSIZ
 
 void sendIPListToSocket(int socket);
-void sendFileToSocket(int receiver_socket);
+//void sendFileToSocket(int receiver_socket, char *filename);
 
 ip_list *server_ip_list;
 
@@ -189,7 +190,7 @@ void startServer(char *LISTENING_PORT) {
 				case CMD_PUT:
 
 					printf("CMD_PUT\n");
-					sendFileToSocket(atoi(arg1));
+//					sendFileToSocket(atoi(arg1),arg2);
 					/*sprintf(print_buf, "some bullshit to send");
 					 for (j = 0; j <= fdmax; j++) {
 					 if (FD_ISSET(j, &fds_master)) {
@@ -300,7 +301,7 @@ void sendIPListToSocket(int socket) {
 
 }
 
-void sendFileToSocket(int receiver_socket) {
+/*void sendFileToSocket(int receiver_socket, char *filename) {
 	int file_fd;
 	struct stat file_stat;
 	char file_size_string[100];
@@ -308,8 +309,9 @@ void sendFileToSocket(int receiver_socket) {
 	int remaining_bytes;
 	int sent_bytes;
 	int msg_len;
+	int flag;
 
-	file_fd = open(FILENAME, O_RDONLY);
+	file_fd = open(filename, O_RDONLY);
 	if (file_fd == -1) {
 		fprintf(stderr, "ERROR open():%s\n", strerror(errno));
 		return;
@@ -319,8 +321,11 @@ void sendFileToSocket(int receiver_socket) {
 		return;
 	}
 	printf("File size:%d bytes\n",(int)file_stat.st_size);
-	sprintf(file_size_string,"$FSIZE %d",(int)file_stat.st_size);
+	sprintf(file_size_string,"$FSIZE %d ",(int)file_stat.st_size);
 	msg_len=strlen(file_size_string);
+
+	flag =1;
+	setsockopt(receiver_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
 	send_all(receiver_socket, file_size_string, &msg_len);
 
 	file_offset=0;
@@ -342,8 +347,14 @@ void sendFileToSocket(int receiver_socket) {
 		printf("sent bytes:%d\t remaining bytes:%d\n",sent_bytes,remaining_bytes);
 
 	}
+
+	flag=0;
+	setsockopt(receiver_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
+
+
 	printf("Done sending\n");
 	close(file_fd);
 
 
 }
+*/

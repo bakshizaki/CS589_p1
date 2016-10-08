@@ -15,6 +15,11 @@
 #include<netdb.h>
 #include <ifaddrs.h>
 #include <linux/if_link.h>
+#include <netinet/tcp.h>
+#include<errno.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "selectclient.h"
 #include"command_handling.h"
@@ -29,6 +34,7 @@ int registerToServer(char *server_ip, char *server_port, int *server_socket, cha
 int connectToHost(char *host_ip, char *host_port, int *host_socket, char* client_listening_port);
 int terminateConnection(char *id, int *ret_socket);
 void quit();
+void sendFileToSocket(char *id, char *filename);
 
 ip_list *client_ip_list, *peer_list;
 int is_registered = 0; //0=false
@@ -43,12 +49,13 @@ void startClient(char * LISTENING_PORT) {
 	char remote_address_string[INET6_ADDRSTRLEN], self_address_string[INET6_ADDRSTRLEN];
 	fd_set fds_master, fds_read;
 	char rec_buf[MAXBUFSIZE];
+	char read_buffer[MAXBUFSIZE];
 	int fdmax = 0;
 	int rec_bytes;
 	int yes = 1;
 	int server_socket = -1;
 	int remaining_file_bytes;
-	int is_doing_file_transfer=0;
+	int is_doing_file_transfer = 0;
 	FILE *received_file;
 
 	memset(&hints, 0, sizeof hints);
@@ -233,6 +240,7 @@ void startClient(char * LISTENING_PORT) {
 					case CMD_PUT:
 						if (DEBUG)
 							printf("CMD_PUT\n");
+						sendFileToSocket(arg1, arg2);
 						break;
 
 					}
@@ -258,21 +266,22 @@ void startClient(char * LISTENING_PORT) {
 						continue;
 					}
 					rec_buf[rec_bytes] = '\0';
+
 					if (DEBUG)
 						printf("From server: %s\n", rec_buf);
 
 					if (rec_buf[0] == '$') {
-						number_of_messages = string_tokenizer(rec_buf, "$", messages, sizeof messages);
+						number_of_messages = string_tokenizer(rec_buf, "$", messages, MAX_MSGS);
 
 						for (iterator = 0; iterator < number_of_messages; ++iterator) {
 							char *tokens[MAX_TOKENS];
 							int number_of_tokens;
-							number_of_tokens = string_tokenizer(messages[iterator], " ", tokens, sizeof tokens);
+							number_of_tokens = string_tokenizer(messages[iterator], " ", tokens, MAX_TOKENS);
 							if (strcmp(tokens[0], "ADD") == 0) {
 								if (number_of_tokens != 4) {
 									if (DEBUG)
 										printf("invalid ADD message received Tokens:%d\n", number_of_tokens);
-									continue;
+									break;
 								}
 								if (isExistInIPList(&client_ip_list, tokens[1], tokens[2], tokens[3]) == 0)
 									addToIPList(&client_ip_list, tokens[1], tokens[2], tokens[3], -1);
@@ -282,43 +291,19 @@ void startClient(char * LISTENING_PORT) {
 								if (number_of_tokens != 4) {
 									if (DEBUG)
 										printf("invalid DEL message received, Tokens:%d\n", number_of_tokens);
-									continue;
+									break;
 								}
 								if (removeFromIPList(&client_ip_list, tokens[1], tokens[2], tokens[3]) != 1)
 									printf("Could not remove %s from client_ip_list\n", tokens[1]);
 							}
-							if (strcmp(tokens[0], "FSIZE") == 0) {
-								if (number_of_tokens != 2) {
-									if (DEBUG)
-										printf("invalid FSIZE message received, Tokens:%d\n", number_of_tokens);
-									continue;
-								}
-
-								parseInt(tokens[1], &remaining_file_bytes);
-								received_file = fopen(REC_FILENAME, "w");
-								is_doing_file_transfer=1;
-							}
-
 							memset(tokens, 0, sizeof tokens);
-						}
-					} else { //not a command but file received
-						if(is_doing_file_transfer==1) {
-							fwrite( rec_buf, sizeof(char), rec_bytes, received_file);
-							remaining_file_bytes -= rec_bytes;
-							printf("Received %d bytes \t %d bytes left\n",rec_bytes,remaining_file_bytes);
-						}
-						if(remaining_file_bytes==0) {
-							printf("Received complete file\n");
-							is_doing_file_transfer=0;
-							close(received_file);
 						}
 					}
 
 				} else { //received from other hosts
-
-					char *tokens[MAX_TOKENS];
-					int number_of_tokens;
-
+					char *messages[MAX_MSGS];
+					int number_of_messages;
+					int iterator;
 					rec_bytes = recv(i, rec_buf, sizeof rec_buf, 0);
 					if (rec_bytes == -1) {
 						perror("recv");
@@ -334,26 +319,74 @@ void startClient(char * LISTENING_PORT) {
 					rec_buf[rec_bytes] = '\0';
 					printf("%s\n", rec_buf);
 
-					number_of_tokens = string_tokenizer(rec_buf, " ", tokens, sizeof tokens);
-					if (strcmp(tokens[0], "PORT") == 0) {
-						if (number_of_tokens != 2) {
-							if (DEBUG)
-								printf("invalid PORT message received %d\n", number_of_tokens);
-							continue;
+					if (rec_buf[0] == '$') {
+						number_of_messages = string_tokenizer(rec_buf, "$", messages, MAX_MSGS);
+
+						for (iterator = 0; iterator < number_of_messages; ++iterator) {
+							char *tokens[MAX_TOKENS];
+							int number_of_tokens;
+							number_of_tokens = string_tokenizer(messages[iterator], " ", tokens, MAX_TOKENS);
+							if (strcmp(tokens[0], "PORT") == 0) {
+								if (number_of_tokens != 2) {
+									if (DEBUG)
+										printf("invalid PORT message received %d\n", number_of_tokens);
+									continue;
+								}
+								setPortOfSocket(&peer_list, i, tokens[1]);
+							}
+
+							if (strcmp(tokens[0], "FSIZE") == 0) {
+								char filename[100] = "rec_";
+								strcat(filename, tokens[2]);
+								parseInt(tokens[1], &remaining_file_bytes);
+								received_file = fopen(filename, "w");
+
+								if (number_of_tokens != 3) {
+									int k = 0, l, space_count = 0;
+									is_doing_file_transfer = 1;
+									while(space_count<3) {
+										if(rec_buf[k]== ' ')
+											space_count++;
+										k++;
+									}
+									k++;
+
+									for (l = 0, k; k < rec_bytes; k++, l++)
+										read_buffer[l] = rec_buf[k];
+									fwrite(read_buffer, sizeof(char), strlen(read_buffer), received_file);
+									remaining_file_bytes -= strlen(read_buffer);
+									printf("Received %d bytes \t %d bytes left\n", strlen(read_buffer), remaining_file_bytes);
+								}
+								memset(rec_buf, '\0', BUFSIZ);
+								//receive rest of the file
+								while (remaining_file_bytes > 0) {
+									rec_bytes = recv(i, rec_buf, sizeof rec_buf, 0);
+									if (rec_bytes == -1) {
+										perror("recv");
+										continue;
+									}
+									if (rec_bytes == 0) {
+										printf("Connection terminated by server\n");
+										FD_CLR(server_socket, &fds_master);
+										removeBySocket(&client_ip_list, server_socket);
+										removeBySocket(&peer_list, server_socket);
+										is_registered = 0;
+										continue;
+									}
+
+									rec_buf[rec_bytes] = '\0';
+									fwrite(rec_buf, sizeof(char), strlen(rec_buf), received_file);
+									remaining_file_bytes -= strlen(rec_buf);
+									printf("Received %d bytes \t %d bytes left\n", rec_bytes, remaining_file_bytes);
+								}
+								fclose(received_file);
+								printf("FILE RECEIVED\n");
+
+							}
+
+							memset(tokens, 0, sizeof tokens);
 						}
-						setPortOfSocket(&peer_list, i, tokens[1]);
 					}
-//					rec_bytes = recv(i, rec_buf, sizeof rec_buf, 0);
-//					if (rec_bytes == -1) {
-//						perror("recv");
-//						continue;
-//					}
-//					if (rec_bytes == 0) {
-//						printf("Connection terminated by server\n");
-//						continue;
-//					}
-//					rec_buf[rec_bytes] = '\0';
-//					printf("%s\n", rec_buf);
 
 				}
 			}
@@ -486,7 +519,7 @@ int connectToHost(char *host_ip, char *host_port, int *host_socket, char* client
 		return 0;
 	}
 	memset(buf, '\0', MAXBUFSIZE);
-	sprintf(buf, "PORT %s", client_listening_port);
+	sprintf(buf, "$PORT %s", client_listening_port);
 	bytes_to_send = strlen(buf);
 	if (send_all(socket_fd, buf, &bytes_to_send) == -1) {
 		printf("Couldnt send all bytes\n");
@@ -533,4 +566,75 @@ void quit() {
 		temp_node = temp_node->next;
 	}
 	exit(EXIT_SUCCESS);
+}
+
+void sendFileToSocket(char *id, char *filename) {
+	int file_fd;
+	struct stat file_stat;
+	char file_size_string[100];
+	off_t file_offset;
+	int remaining_bytes;
+	int sent_bytes;
+	int msg_len;
+	int flag;
+	char *endp;
+	int conn_id = (int) strtol(id, &endp, 10);
+	int iterator = 0;
+	ip_list *temp_node = peer_list;
+	int receiver_socket;
+
+	printf("ID:%d\n", conn_id);
+	while (temp_node != NULL && iterator < conn_id - 1) {
+		temp_node = temp_node->next;
+		iterator++;
+	}
+	if (temp_node == NULL) {
+		printf("ERROR: ID out of range\n");
+		return;
+	}
+	receiver_socket = temp_node->socket;
+
+	file_fd = open(filename, O_RDONLY);
+	if (file_fd == -1) {
+		fprintf(stderr, "ERROR open():%s\n", strerror(errno));
+		return;
+	}
+	if (fstat(file_fd, &file_stat) < 0) {
+		fprintf(stderr, "ERROR fstat():%s\n", strerror(errno));
+		return;
+	}
+	printf("File size:%d bytes\n", (int) file_stat.st_size);
+	sprintf(file_size_string, "$FSIZE %d %s ", (int) file_stat.st_size, filename);
+	msg_len = strlen(file_size_string);
+
+	flag = 1;
+	setsockopt(receiver_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
+	send_all(receiver_socket, file_size_string, &msg_len);
+
+	file_offset = 0;
+	remaining_bytes = file_stat.st_size;
+	if (DEBUG)
+		printf("FileSocket:%d\n", receiver_socket);
+
+//	sent_bytes=sendfile(receiver_socket, file_fd,&file_offset, file_stat.st_size);
+//	if(sent_bytes==-1)
+//		perror("sendfile");
+//	if(sent_bytes!=file_stat.st_size) {
+//		printf("Incomplete file transfer %d\n",sent_bytes);
+//	}
+
+	while ((sent_bytes = sendfile(receiver_socket, file_fd, &file_offset, BUFSIZ)) > 0 && (remaining_bytes > 0)) {
+		if (sent_bytes == -1)
+			perror("ERROR sendfile");
+		remaining_bytes = remaining_bytes - sent_bytes;
+		printf("sent bytes:%d\t remaining bytes:%d\n", sent_bytes, remaining_bytes);
+
+	}
+
+	flag = 0;
+	setsockopt(receiver_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
+
+	printf("Done sending\n");
+	close(file_fd);
+
 }

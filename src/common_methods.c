@@ -68,7 +68,7 @@ void displayIPAndPort(char * listening_port) {
 }
 
 int string_tokenizer(char *input_string,char *delimeter, char *tokens[], int token_array_size) { // split string into tokens are returns number of tokens
-	char msg[1024];
+	char msg[BUFSIZ];
 	int token_count = 0;
 //	char *token_array[10];
 	strcpy(msg, input_string);

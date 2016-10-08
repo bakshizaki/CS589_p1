@@ -47,4 +47,11 @@ local.properties
 .springBeans
 
 # Code Recommenders
-.recommenders/ 
+.recommenders/
+
+#my project specific
+zaki.txt
+rec_file.txt 
+*.txt
+*.txt~
+
