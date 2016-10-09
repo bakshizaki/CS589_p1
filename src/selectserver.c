@@ -35,6 +35,7 @@
 void sendIPListToSocket(int socket);
 int terminateConnectionServer(char *id, int *ret_socket);
 //void sendFileToSocket(int receiver_socket, char *filename);
+void quitServer();
 
 ip_list *server_ip_list;
 
@@ -160,6 +161,7 @@ void startServer(char *LISTENING_PORT) {
 				case CMD_HELP:
 					if (DEBUG)
 					printf("CMD_HELP\n");
+					showHelp();
 					break;
 				case CMD_CREATOR:
 					if (DEBUG)
@@ -201,6 +203,7 @@ void startServer(char *LISTENING_PORT) {
 				case CMD_QUIT:
 					if (DEBUG)
 					printf("CMD_QUIT\n");
+					quitServer();
 					break;
 				case CMD_GET:
 					if (DEBUG)
@@ -339,4 +342,13 @@ if(DEBUG)	printf("ID:%d\n", conn_id);
 	close(temp_node->socket);
 	*ret_socket = temp_node->socket;
 	return 1;
+}
+
+void quitServer() {
+	ip_list *temp_node = server_ip_list;
+	while (temp_node != NULL) {
+		close(temp_node->socket);
+		temp_node = temp_node->next;
+	}
+	exit(EXIT_SUCCESS);
 }

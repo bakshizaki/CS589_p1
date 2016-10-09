@@ -163,6 +163,7 @@ void startClient(char * LISTENING_PORT) {
 					case CMD_HELP:
 						if (DEBUG)
 							printf("CMD_HELP\n");
+						showHelp();
 						break;
 					case CMD_CREATOR:
 						if (arg1 != NULL || arg2 != NULL) {
