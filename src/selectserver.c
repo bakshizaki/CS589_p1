@@ -106,6 +106,7 @@ void startServer(char *LISTENING_PORT) {
 					int s;
 					char host[NI_MAXHOST];
 					char *server_ip;
+					char temp_host[1025];
 
 					remote_addr_len = sizeof remote_addr;
 					new_sock = accept(listener_socket, &remote_addr, &remote_addr_len);
@@ -125,12 +126,13 @@ void startServer(char *LISTENING_PORT) {
 //							exit(EXIT_FAILURE);
 						} else
 							printf("hostname:%s\n", host);
-
+						strcpy(temp_host,host);
+						if(DEBUG) printf("hostname length:%d\n",strlen(host));
 						printf("Connection received from %s at socket %d\n", remote_addr_string, new_sock);
 						//now send all ip in list to this new host
 						sendIPListToSocket(new_sock);
 
-						addToIPList(&server_ip_list, server_ip, host, NULL, new_sock);
+						addToIPList(&server_ip_list, server_ip, temp_host, NULL, new_sock);
 						write(1, ">>", 2);
 //						sprintf(print_buf, "%s joined chat at socket %d\n", remote_addr_string, new_sock);
 //						for (j = 0; j <= fdmax; j++) {
@@ -161,9 +163,21 @@ void startServer(char *LISTENING_PORT) {
 				case CMD_HELP:
 					if (DEBUG)
 					printf("CMD_HELP\n");
+					if (arg1 != NULL || arg2 != NULL) {
+						printf("Error Extra arguments\n");
+						showHelpHelp();
+						break;
+					}
+
 					showHelp();
 					break;
 				case CMD_CREATOR:
+					if (arg1 != NULL || arg2 != NULL) {
+						printf("Error Extra arguments\n");
+						showCreatorHelp();
+						break;
+					}
+
 					if (DEBUG)
 					printf("CMD_CREATOR\n");
 					printf("Name: Muhammed Zaki Muhammed Husain Bakshi\n");
@@ -173,6 +187,12 @@ void startServer(char *LISTENING_PORT) {
 				case CMD_DISPLAY:
 					if (DEBUG)
 					printf("CMD_DISPLAY\n");
+					if (arg1 != NULL || arg2 != NULL) {
+						printf("Error Extra arguments\n");
+						showDisplayHelp();
+						break;
+					}
+
 					displayIPAndPort(LISTENING_PORT);
 					break;
 				case CMD_REGISTER:
@@ -183,10 +203,17 @@ void startServer(char *LISTENING_PORT) {
 				case CMD_CONNECT:
 					if (DEBUG)
 					printf("CMD_CONNECT\n");
+					printf("Connect command is not valid on server\n");
 					break;
 				case CMD_LIST:
 					if (DEBUG)
 					printf("CMD_LIST\n");
+					if (arg1 != NULL || arg2 != NULL) {
+						printf("Error Extra arguments\n");
+						showListHelp();
+						break;
+					}
+
 					printIPList(&server_ip_list);
 					break;
 				case CMD_TERMINATE:

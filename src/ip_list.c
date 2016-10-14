@@ -24,7 +24,7 @@ void addToIPList(ip_list **list, char *ip_address, char *hostname, char *port, i
 	}
 
 	if (hostname != NULL) {
-		temp_node->hostname = (char *) malloc(strlen(hostname) * sizeof(char));
+		temp_node->hostname = (char *) malloc(1025 * sizeof(char));
 		strcpy(temp_node->hostname, hostname);
 	}
 
@@ -399,10 +399,11 @@ void printIPList(ip_list **list) {
 	ip_list *current_node;
 	current_node = *list;
 	int id=1;
-	printf("id  Hostname                      IP address          Port No.  Socket\n");
+	printf("id  Hostname                      IP address          Port No.\n");
+//	printf("id  Hostname                      IP address          Port No.  Socket\n");
 	while (current_node != NULL) {
-//		printf("%-4d%-30s%-20s%-8s\n",id++,current_node->hostname,current_node->ip_address,current_node->port);
-		printf("%-4d%-30s%-20s%-10s%-6d\n",id++,current_node->hostname,current_node->ip_address,current_node->port,current_node->socket);
+		printf("%-4d%-30s%-20s%-8s\n",id++,current_node->hostname,current_node->ip_address,current_node->port);
+//		printf("%-4d%-30s%-20s%-10s%-6d\n",id++,current_node->hostname,current_node->ip_address,current_node->port,current_node->socket);
 		current_node = current_node->next;
 	}
 }
@@ -411,6 +412,14 @@ void setPortOfSocket(ip_list **list, int socket, char *port) {
 	if (port != NULL) {
 		temp_node->port = (char *) malloc(strlen(port) * sizeof(char));
 		strcpy(temp_node->port, port);
+	}
+}
+void clearIPList(ip_list **list) {
+	ip_list *temp_node;
+	while(*list!=NULL) {
+		temp_node= *list;
+		*list= temp_node->next;
+		free(temp_node);
 	}
 }
 

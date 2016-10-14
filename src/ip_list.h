@@ -36,7 +36,7 @@ int removeByIP(ip_list **list, char *ip_address);
 int removeByHostname(ip_list **list, char *hostname);
 int removeByPort(ip_list **list, char *port);
 int removeBySocket(ip_list **list, int socket);
-
+void clearIPList(ip_list **list);
 void setPortOfSocket(ip_list **list,int socket,char *port);
 
 #endif /* IP_LIST_H_ */

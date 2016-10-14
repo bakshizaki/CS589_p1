@@ -79,7 +79,8 @@ int string_tokenizer(char *input_string,char *delimeter, char *tokens[], int tok
 	while (p != NULL) {
 		if (token_count == token_array_size)
 				break;
-		tokens[token_count]=(char *) malloc(strlen(p)*sizeof(char));
+//		tokens[token_count]=(char *) malloc(strlen(p)*sizeof(char));
+		tokens[token_count]=(char *) malloc(1025*sizeof(char));
 		strcpy(tokens[token_count],p);
 		token_count++;
 		p = strtok(NULL, delimeter);

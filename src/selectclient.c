@@ -163,11 +163,16 @@ void startClient(char * LISTENING_PORT) {
 					case CMD_HELP:
 						if (DEBUG)
 							printf("CMD_HELP\n");
+						if (arg1 != NULL || arg2 != NULL) {
+							printf("Error Extra arguments\n");
+							showHelpHelp();
+							break;
+						}
 						showHelp();
 						break;
 					case CMD_CREATOR:
 						if (arg1 != NULL || arg2 != NULL) {
-							printf("Error CMD_CREATOR: Extra arguments\n");
+							printf("Error Extra arguments\n");
 							showCreatorHelp();
 							break;
 						}
@@ -178,6 +183,11 @@ void startClient(char * LISTENING_PORT) {
 						printf("email: mbakshi@buffalo.edu\n");
 						break;
 					case CMD_DISPLAY:
+						if (arg1 != NULL || arg2 != NULL) {
+							printf("Error Extra arguments\n");
+							showDisplayHelp();
+							break;
+						}
 						if (DEBUG)
 							printf("CMD_DISPLAY\n");
 						displayIPAndPort(LISTENING_PORT);
@@ -187,6 +197,11 @@ void startClient(char * LISTENING_PORT) {
 							printf("Client already registered\n");
 							break;
 						}
+						if(arg1 == NULL || arg2 == NULL) {
+							printf("Arguments missing\n");
+							showRegisterHelp();
+						}
+
 						if (registerToServer(arg1, arg2, &server_socket, LISTENING_PORT) == 1) {
 							if (DEBUG)
 								printf("server socket:%d\n", server_socket);
@@ -202,6 +217,10 @@ void startClient(char * LISTENING_PORT) {
 							printf("Can't connect to more than 3 hosts\n");
 							break;
 						}
+						if(arg1 == NULL || arg2 == NULL) {
+							printf("Arguments missing\n");
+							showConnectHelp();
+						}
 
 						if (connectToHost(arg1, arg2, &temp_socket, LISTENING_PORT) == 1) {
 							if (DEBUG)
@@ -215,6 +234,12 @@ void startClient(char * LISTENING_PORT) {
 							printf("CMD_CONNECT\n");
 						break;
 					case CMD_LIST:
+						if (arg1 != NULL || arg2 != NULL) {
+							printf("Error Extra arguments\n");
+							showListHelp();
+							break;
+						}
+
 						if (DEBUG)
 							printf("CMD_LIST\n");
 						printf("-------Client-IP-List-------\n");
@@ -223,6 +248,10 @@ void startClient(char * LISTENING_PORT) {
 						printIPList(&peer_list);
 						break;
 					case CMD_TERMINATE:
+						if(arg1==NULL || arg2!=NULL) {
+							printf("Use correct arguments\n");
+							showTerminateHelp();
+						}
 						if (terminateConnection(arg1, &temp_socket) == 0) {
 							printf("ERROR: Problem Terminating connection\n");
 							break;
@@ -234,10 +263,17 @@ void startClient(char * LISTENING_PORT) {
 						}
 						FD_CLR(temp_socket, &fds_master);
 						printf("Connection Successfully Terminated\n");
+						number_of_connections-=1;
 						if (DEBUG)
 							printf("CMD_TERMINATE\n");
 						break;
 					case CMD_QUIT:
+						if (arg1 != NULL || arg2 != NULL) {
+							printf("Error Extra arguments\n");
+							showQuitHelp();
+							break;
+						}
+
 						quit();
 						if (DEBUG)
 							printf("CMD_QUIT\n");
@@ -254,6 +290,11 @@ void startClient(char * LISTENING_PORT) {
 					case CMD_PUT:
 						if (DEBUG)
 							printf("CMD_PUT\n");
+						if(arg1==NULL || arg2==NULL) {
+							printf("Invalid arguments for PUT command\n");
+							break;
+						}
+
 						is_doing_file_transfer = 1;
 						sendFileToSocketID(arg1, arg2);
 						is_doing_file_transfer = 0;
@@ -278,6 +319,7 @@ void startClient(char * LISTENING_PORT) {
 						FD_CLR(server_socket, &fds_master);
 						removeBySocket(&client_ip_list, server_socket);
 						removeBySocket(&peer_list, server_socket);
+						clearIPList(&client_ip_list);
 						is_registered = 0;
 						continue;
 					}
@@ -347,7 +389,7 @@ void startClient(char * LISTENING_PORT) {
 							printf("Received %d bytes \t %d bytes left\n", rec_bytes, remaining_file_bytes);
 						if (remaining_file_bytes <= 0) {
 							fclose(received_file);
-							printf("FILE RECEIVED\n");
+							printf("File received from %s\n",findBySocket(&peer_list, i)->hostname);
 							is_doing_file_transfer = 0;
 							write(1, ">>", 2);
 						}
@@ -440,7 +482,7 @@ void startClient(char * LISTENING_PORT) {
 										printf("Received %d bytes \t %d bytes left\n", (int) strlen(read_buffer), remaining_file_bytes);
 									if (remaining_file_bytes <= 0) {
 										fclose(received_file);
-										printf("FILE RECEIVED\n");
+										printf("File received from %s\n",findBySocket(&peer_list, i)->hostname);
 										is_doing_file_transfer = 0;
 
 									}

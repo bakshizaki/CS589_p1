@@ -19,7 +19,7 @@ void convertToLower(char *p) {
 }
 
 int process_command(char *cmd_msg, int *command, char **arg1, char **arg2) {
-	char msg[50];
+	char msg[500];
 	int token_count = 0;
 	char *token_array[3];
 	strcpy(msg,cmd_msg);
@@ -54,11 +54,11 @@ int process_command(char *cmd_msg, int *command, char **arg1, char **arg2) {
 		return 0;
 	}
 	if (token_count >= 2) {
-		*arg1=(char *)malloc(sizeof(char) * sizeof token_array[1]);
+		*arg1=(char *)malloc(sizeof(char) * 500);
 		strcpy(*arg1,token_array[1]);
 	}
 	if (token_count == 3) {
-		*arg2=(char *)malloc(sizeof(char) * sizeof token_array[2]);
+		*arg2=(char *)malloc(sizeof(char) * 500);
 		strcpy(*arg2,token_array[2]);
 	}
 	return 1;

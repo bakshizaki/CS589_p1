@@ -1,1 +1,1 @@
-This file must contain some bullshit information so that we can test if it gets received correctly. 
+This is a test file
